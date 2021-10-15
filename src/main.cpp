@@ -57,6 +57,8 @@ static lmh_app_data_t lorawan_app_data = {lorawan_app_data_buffer, 0, 0, 0, 0};
 
 CayenneLPP lpp(64);
 
+bool send_env_data = false;
+
 /** Setup *********************************************************************/
 
 void setup_serial(void) {
@@ -197,14 +199,15 @@ void update_sensors(void) {
 }
 
 void lorawan_periodic_handler(void) {
-  digitalWrite(LED_BLUE, HIGH);
+  send_env_data = true;
+}
 
-  update_sensors();
-
-  TimerSetValue(&lorawan_timer, DEFAULT_SEND_DELAY);
-  TimerStart(&lorawan_timer);
-
+void lorawan_send_env_data(void) {
   if (lmh_join_status_get() == LMH_SET) {
+    digitalWrite(LED_BLUE, HIGH);
+
+    update_sensors();
+
     DEBUG_PRINT(F("[LoRaWAN] Building CayennLPP payload... "));
 
     lpp.reset();
@@ -224,13 +227,20 @@ void lorawan_periodic_handler(void) {
     } else {
       DEBUG_PRINTLN(F("[LoRaWAN] Sending message failed!"));
     }
+
+    digitalWrite(LED_BLUE, LOW);
   } else {
     DEBUG_PRINTLN(F("[LoRaWAN] Not connected to network. Not sending data!"));
   }
-
-  digitalWrite(LED_BLUE, LOW);
 }
 
 void loop(void) {
-  Radio.IrqProcess();
+  if (send_env_data) {
+    lorawan_send_env_data();
+
+    TimerSetValue(&lorawan_timer, DEFAULT_SEND_DELAY);
+    TimerStart(&lorawan_timer);
+
+    send_env_data = false;
+  }
 }
